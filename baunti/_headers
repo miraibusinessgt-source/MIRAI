@@ -1,0 +1,34 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# v4 enhancement layer: unhashed names, so always revalidate
+/assets/baunti-glass.css
+  Cache-Control: public, max-age=0, must-revalidate
+/assets/baunti-motion.js
+  Cache-Control: public, max-age=0, must-revalidate
+/assets/baunti-copy.js
+  Cache-Control: public, max-age=0, must-revalidate
+/assets/baunti-hero.css
+  Cache-Control: public, max-age=0, must-revalidate
+/assets/baunti-hero.js
+  Cache-Control: public, max-age=0, must-revalidate
+/assets/baunti-mascot-3d.js
+  Cache-Control: public, max-age=0, must-revalidate
+/assets/3d/*
+  Cache-Control: public, max-age=86400, must-revalidate
+# v7: legal layer, standalone pages and the 3D demo (unhashed, always revalidate)
+/assets/baunti-legal.css
+  Cache-Control: public, max-age=0, must-revalidate
+/assets/baunti-legal.js
+  Cache-Control: public, max-age=0, must-revalidate
+/assets/baunti-pages.css
+  Cache-Control: public, max-age=0, must-revalidate
+/assets/baunti-pages.js
+  Cache-Control: public, max-age=0, must-revalidate
+/assets/baunti-demo.css
+  Cache-Control: public, max-age=0, must-revalidate
+/assets/baunti-demo.js
+  Cache-Control: public, max-age=0, must-revalidate
+/assets/demo-BCupzO3e.js
+  Cache-Control: public, max-age=0, must-revalidate

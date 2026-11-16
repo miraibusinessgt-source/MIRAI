@@ -1,0 +1,622 @@
+/* ==========================================================================
+   Baunti glass layer (v4)
+   Loaded after the compiled Tailwind bundle on "/" only. It never touches
+   /portal or /demo. It targets section IDs and DOM structure, not utility
+   classes, so a rebuild of the app keeps working.
+
+   Contents
+   1. Glass tokens (light, dark, navy sections)
+   2. Ambient backdrop (drifting color fields + grain)
+   3. Sections that let the backdrop through
+   4. Glass surfaces on existing components
+   5. Skeleton primitive (.bt-skel)
+   6. Loader hand-off and reveals
+   7. "How it works" story (vignettes, rabbit guide, progress)
+   8. "If we don't collect" meter
+   9. Fallbacks: no backdrop-filter, reduced transparency, more contrast,
+      reduced motion
+   ========================================================================== */
+
+/* 1. Tokens ---------------------------------------------------------------- */
+/* Fill alphas were chosen by computing contrast of every text token on the
+   glass fill blended over the lightest and darkest backdrop it can sit on.
+   The worst case is 5.0:1 (light) and 5.2:1 (navy/dark). */
+:root {
+  --glass-bg: rgb(251 248 242 / 0.58);
+  --glass-bg-strong: rgb(251 248 242 / 0.82);
+  --glass-border: rgb(20 33 61 / 0.12);
+  --glass-highlight: rgb(255 255 255 / 0.7);
+  --glass-blur: 20px;
+  --glass-sat: 160%;
+  --glass-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    0 0 0 1px var(--glass-border),
+    0 24px 48px -28px rgb(20 33 61 / 0.38),
+    0 2px 8px -4px rgb(20 33 61 / 0.12);
+  --glass-radius: 18px;
+  --glass-radius-lg: 24px;
+
+  --bt-blob-1: rgb(255 107 91 / 0.26);  /* coral */
+  --bt-blob-2: rgb(20 33 61 / 0.16);    /* navy */
+  --bt-blob-3: rgb(255 255 255 / 0.7);  /* cream light */
+  --bt-grain-opacity: 0.05;
+
+  --bt-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --bt-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+[data-theme="dark"] {
+  --glass-bg: rgb(34 51 90 / 0.5);
+  --glass-bg-strong: rgb(27 42 75 / 0.84);
+  --glass-border: rgb(244 237 224 / 0.12);
+  --glass-highlight: rgb(244 237 224 / 0.14);
+  --glass-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    0 0 0 1px var(--glass-border),
+    0 28px 56px -28px rgb(0 0 0 / 0.6),
+    0 2px 8px -4px rgb(0 0 0 / 0.3);
+  --bt-blob-1: rgb(255 107 91 / 0.14);
+  --bt-blob-2: rgb(58 74 110 / 0.55);   /* cobalt from the hero phone */
+  --bt-blob-3: rgb(244 237 224 / 0.05);
+  --bt-grain-opacity: 0.07;
+}
+
+/* Navy sections are dark in both themes, so they always get the dark glass. */
+.theme-navy {
+  --glass-bg: rgb(30 45 80 / 0.5);
+  --glass-bg-strong: rgb(20 33 61 / 0.84);
+  --glass-border: rgb(244 237 224 / 0.12);
+  --glass-highlight: rgb(244 237 224 / 0.14);
+  --glass-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    0 0 0 1px var(--glass-border),
+    0 28px 56px -28px rgb(0 0 0 / 0.6),
+    0 2px 8px -4px rgb(0 0 0 / 0.3);
+}
+
+/* The one glass recipe. Every glass surface uses this. The border is a
+   box-shadow ring, so adding glass never changes layout. */
+.bt-glass,
+header.theme-navy:not(.bg-transparent),
+#top h1 ~ ul,
+#top figcaption,
+#como-funciona ol > li::before,
+#control ul > li,
+#servicios > div > ul > li,
+#calculadora form,
+#modelo > div > ul,
+#pregunta > div > div:last-child > div,
+#pregunta div:has(> button + button) > button,
+#ask-panel,
+#contacto form,
+#main .btn-ghost,
+header .btn-ghost {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  box-shadow: var(--glass-shadow);
+}
+
+/* 2. Ambient backdrop ------------------------------------------------------ */
+#bt-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  contain: strict;
+}
+#bt-ambient i {
+  position: absolute;
+  width: 70vmax;
+  height: 70vmax;
+  border-radius: 50%;
+  will-change: transform;
+}
+#bt-ambient i:nth-child(1) { top: -25vmax; right: -20vmax; background: radial-gradient(closest-side, var(--bt-blob-1), transparent); animation: bt-drift-a 90s ease-in-out infinite alternate; }
+#bt-ambient i:nth-child(2) { bottom: -30vmax; left: -25vmax; background: radial-gradient(closest-side, var(--bt-blob-2), transparent); animation: bt-drift-b 110s ease-in-out infinite alternate; }
+#bt-ambient i:nth-child(3) { top: 30%; left: 35%; width: 50vmax; height: 50vmax; background: radial-gradient(closest-side, var(--bt-blob-3), transparent); animation: bt-drift-c 75s ease-in-out infinite alternate; }
+/* grain, so the glass has texture to refract */
+#bt-ambient::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: var(--bt-grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.08 0 0 0 0 0.13 0 0 0 0 0.24 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+[data-theme="dark"] #bt-ambient::after { filter: invert(1); }
+@keyframes bt-drift-a { to { transform: translate3d(-12vmax, 10vmax, 0) scale(1.08); } }
+@keyframes bt-drift-b { to { transform: translate3d(14vmax, -8vmax, 0) scale(0.94); } }
+@keyframes bt-drift-c { to { transform: translate3d(-10vmax, 12vmax, 0); } }
+/* pause the drift while the tab is hidden */
+html.bt-hidden #bt-ambient i { animation-play-state: paused; }
+
+/* Navy sections: a section-scoped glow, since they cover the backdrop. */
+#control, #demo, footer { position: relative; isolation: isolate; }
+#control::before,
+#demo::before,
+#contacto::after,
+footer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(40rem 28rem at 85% 10%, rgb(255 107 91 / 0.14), transparent 70%),
+    radial-gradient(46rem 32rem at 8% 90%, rgb(58 74 110 / 0.55), transparent 70%);
+}
+#contacto::after { z-index: -15; }
+footer::before { background: radial-gradient(40rem 20rem at 90% 0%, rgb(58 74 110 / 0.45), transparent 70%); }
+
+/* 3. Sections that let the backdrop through --------------------------------- */
+#sectores, #servicios, #modelo, #pregunta { background: transparent; }
+#como-funciona, #calculadora { background-color: color-mix(in srgb, var(--surface-2) 45%, transparent); }
+
+/* 4. Glass surfaces --------------------------------------------------------- */
+
+/* Header: frosted navy bar once the page scrolls (the app swaps
+   bg-transparent for a solid tint at that point). */
+body header.theme-navy:not(.bg-transparent) {
+  background: rgb(20 33 61 / 0.9);
+  --glass-blur: 24px;
+  --glass-sat: 180%;
+  box-shadow: 0 1px 0 0 var(--glass-border), 0 12px 32px -20px rgb(0 0 0 / 0.5);
+  border-bottom-color: transparent;
+}
+#mobile-menu { border-top-color: var(--glass-border); }
+
+/* Hero: the three reassurances become one frosted panel over the network. */
+#top h1 ~ ul {
+  border-top-color: transparent;
+  border-radius: var(--glass-radius);
+  padding: 1.25rem 1.375rem;
+  --glass-bg: rgb(30 45 80 / 0.42);
+}
+#top figcaption {
+  border-color: transparent;
+  border-radius: 14px;
+  --glass-bg-strong: rgb(27 42 75 / 0.86);
+  background: var(--glass-bg-strong);
+}
+
+/* Secondary buttons are glass; primary and accent stay solid. */
+#main .btn-ghost,
+header .btn-ghost {
+  border-color: transparent;
+  --glass-blur: 12px;
+}
+@media (hover: hover) and (pointer: fine) {
+  #main .btn-ghost:hover,
+  header .btn-ghost:hover { --glass-bg: var(--glass-bg-strong); }
+}
+
+/* Principles cards (navy) */
+#control ul > li {
+  border-color: transparent;
+  border-radius: var(--glass-radius);
+}
+#control ul > li > div:first-child { background: rgb(14 24 48 / 0.35); border-bottom-color: var(--glass-border); }
+
+/* Services: hairline grid becomes separate glass tiles */
+#servicios > div > ul {
+  gap: 0.875rem;
+  background: none;
+  border-color: transparent;
+  overflow: visible;
+}
+#servicios > div > ul > li {
+  border-radius: var(--glass-radius-lg);
+  overflow: hidden;
+}
+
+/* Calculator panel: glass inputs side, solid navy results side for figures */
+#calculadora form {
+  border-color: transparent;
+  border-radius: var(--glass-radius-lg);
+}
+#calculadora form .field,
+#contacto form .field,
+#pregunta form .field {
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+
+/* Pricing card */
+#modelo > div > ul {
+  border-top-color: transparent;
+  border-radius: var(--glass-radius-lg);
+  padding: 0.25rem 1.5rem;
+}
+#modelo > div > ul > li:last-child { border-bottom-color: transparent; }
+@media (min-width: 768px) {
+  #modelo > div > ul { padding: 0.5rem 0.5rem; }
+  #modelo > div > ul > li:first-child { padding-left: 2rem; }
+}
+
+/* Ask Baunti: chat window and suggestion chips */
+#pregunta > div > div:last-child > div {
+  border-color: transparent;
+  border-radius: var(--glass-radius-lg);
+}
+#pregunta div:has(> button + button) > button {
+  border-color: transparent;
+  --glass-blur: 10px;
+  box-shadow: inset 0 1px 0 0 var(--glass-highlight), 0 0 0 1px var(--glass-border);
+}
+#pregunta div:has(> button + button) { padding-block: 0.875rem; }
+#ask-panel {
+  border-color: transparent;
+  border-radius: var(--glass-radius);
+  background: var(--glass-bg-strong);
+  --glass-blur: 24px;
+}
+
+/* Contact form (navy) */
+#contacto form {
+  border-color: transparent;
+  border-radius: var(--glass-radius-lg);
+}
+
+/* 5. Skeleton primitive ----------------------------------------------------- */
+/* Variants: --line, --heading, --card, --avatar, --media. The portal's
+   Skeleton uses the same idea (a neutral block with a pulse); this one adds a
+   glass fill and a shimmer sweep that moves with transform only. */
+.bt-skel {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+  isolation: isolate;
+}
+.bt-skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--glass-highlight) 85%, transparent), transparent);
+  animation: bt-shimmer 1.4s var(--bt-ease-in-out) infinite;
+}
+.bt-skel--line { height: 0.75rem; width: 100%; border-radius: 999px; }
+.bt-skel--line + .bt-skel--line { margin-top: 0.625rem; }
+.bt-skel--short { width: 62%; }
+.bt-skel--heading { height: 1.75rem; width: 70%; border-radius: 10px; }
+.bt-skel--hero { height: clamp(2.6rem, 1.3rem + 5.2vw, 5.8rem); border-radius: 14px; }
+.bt-skel--card { min-height: 8rem; border-radius: var(--glass-radius); background: var(--glass-bg); box-shadow: var(--glass-shadow); }
+.bt-skel--avatar { width: 2.75rem; height: 2.75rem; border-radius: 50%; }
+.bt-skel--pill { height: 3.25rem; width: 11rem; border-radius: 999px; }
+.bt-skel--media { aspect-ratio: 16 / 9; width: 100%; border-radius: var(--glass-radius); }
+@keyframes bt-shimmer { to { transform: translateX(100%); } }
+
+/* Skeleton shown inside #root before React's first render, for visits that
+   skip the rabbit loader. React clears #root on first render. Its layout
+   mirrors the hero, so nothing shifts when the real hero arrives. */
+#bt-shell { min-height: max(100svh, 780px); background: #14213d; color-scheme: dark; --ink: #f4ede0; --glass-highlight: rgb(244 237 224 / 0.14); }
+#bt-shell .bt-shell-nav { height: 72px; max-width: 1280px; margin: 0 auto; padding: 0 1.25rem; display: flex; align-items: center; justify-content: space-between; }
+#bt-shell .bt-shell-body { max-width: 1280px; margin: 0 auto; padding: 7rem 1.25rem 6rem; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
+#bt-shell .bt-skel--pill { flex: 0 1 11rem; }
+#bt-shell .bt-shell-body > * { max-width: 40rem; }
+@media (min-width: 640px) { #bt-shell .bt-shell-nav, #bt-shell .bt-shell-body { padding-inline: 2rem; } }
+
+/* 6. Loader hand-off --------------------------------------------------------- */
+/* When the rabbit loader starts fading, the hero's supporting content settles
+   in with a short stagger. The h1 and the intro paragraph (the LCP element)
+   are never hidden, so LCP is unaffected. */
+html.bt-handoff #top h1 ~ div,
+html.bt-handoff #top h1 ~ ul,
+html.bt-handoff #top figure {
+  animation: bt-rise 420ms var(--bt-ease-out) both;
+}
+html.bt-handoff #top h1 ~ div { animation-delay: 80ms; }
+html.bt-handoff #top h1 ~ ul { animation-delay: 180ms; }
+html.bt-handoff #top figure { animation-delay: 160ms; animation-duration: 600ms; }
+@keyframes bt-rise { from { opacity: 0; transform: translate3d(0, 10px, 0); } }
+
+/* Lazy regions: content fades in over its skeleton once it is ready. */
+.bt-lazy { position: relative; }
+.bt-lazy > .bt-skel { position: absolute; inset: 0; transition: opacity 240ms ease; }
+.bt-lazy[aria-busy="false"] > .bt-skel { opacity: 0; }
+.bt-lazy > .bt-content { opacity: 0; transform: translate3d(0, 6px, 0); transition: opacity 320ms var(--bt-ease-out), transform 320ms var(--bt-ease-out); transition-delay: var(--bt-delay, 0ms); }
+.bt-lazy[aria-busy="false"] > .bt-content { opacity: 1; transform: none; }
+
+/* 7. How it works: the story ------------------------------------------------ */
+/* Each step becomes a glass card. The card is drawn by ::before so the
+   timeline dot can stay outside it, on the line. */
+#como-funciona ol > li {
+  isolation: isolate;
+  padding: 1.25rem 1.25rem 1.5rem 3.75rem;
+}
+#como-funciona ol > li::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 2.25rem;
+  z-index: -1;
+  border-radius: var(--glass-radius);
+  transition: box-shadow 300ms ease;
+}
+#como-funciona ol > li > span:first-child { top: 1.25rem; }
+#como-funciona ol > li.bt-active::before {
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent),
+    0 24px 48px -28px rgb(20 33 61 / 0.38);
+}
+@media (min-width: 1024px) {
+  #como-funciona ol > li { padding: 4.25rem 1.25rem 1.5rem; }
+  #como-funciona ol > li::before { inset: 2.5rem 0 0 0; }
+  #como-funciona ol > li > span:first-child { top: 0; left: 1.25rem; }
+  /* the dots moved 1.25rem into the cards; move the line with them */
+  #como-funciona .relative:has(> ol) > div:nth-child(2) { left: 2rem; right: calc(20% - 3.2rem); }
+}
+
+/* vignette slot: fixed aspect ratio so building it never shifts layout */
+.bt-vig { display: block; margin: 0 0 1rem; aspect-ratio: 12 / 7; width: 100%; max-width: 20rem; border-radius: 12px; overflow: hidden; background: color-mix(in srgb, var(--bg) 55%, transparent); box-shadow: inset 0 0 0 1px var(--glass-border); }
+.bt-vig svg { display: block; width: 100%; height: 100%; }
+.bt-vig .bt-content { display: block; height: 100%; }
+@media (min-width: 1024px) { .bt-vig { max-width: none; } }
+
+/* vignette paint tokens */
+.bt-vig { --v-ink: var(--ink); --v-soft: color-mix(in srgb, var(--ink) 16%, transparent); --v-faint: color-mix(in srgb, var(--ink) 8%, transparent); --v-card: color-mix(in srgb, var(--surface) 92%, transparent); --v-accent: var(--accent); --v-ok: var(--success); }
+.bt-vig .f-ink { fill: var(--v-ink); } .bt-vig .f-soft { fill: var(--v-soft); } .bt-vig .f-faint { fill: var(--v-faint); }
+.bt-vig .f-card { fill: var(--v-card); } .bt-vig .f-accent { fill: var(--v-accent); } .bt-vig .f-ok { fill: var(--v-ok); }
+.bt-vig .s-ink { stroke: var(--v-ink); } .bt-vig .s-soft { stroke: var(--v-soft); } .bt-vig .s-accent { stroke: var(--v-accent); } .bt-vig .s-bg { stroke: var(--v-card); }
+.bt-vig text { font-family: var(--font-sans); font-variant-numeric: tabular-nums; font-weight: 600; }
+.bt-vig [class*="a-"] { transform-box: fill-box; transform-origin: 50% 50%; }
+
+/* The animations play once, when the vignette scrolls into view (.bt-play).
+   Before that, every moving part rests at its final state, so a static or
+   reduced-motion page always shows the finished picture. */
+.bt-play .a-file   { animation: v-file 1100ms var(--bt-ease-out) both; }
+.bt-play .a-row    { animation: v-pop 360ms var(--bt-ease-out) both; animation-delay: calc(900ms + var(--i) * 110ms); }
+.bt-play .a-glow   { animation: v-glow 900ms ease both 1300ms; }
+.bt-play .a-tick   { animation: v-tick 320ms var(--bt-ease-out) both; animation-delay: calc(350ms + var(--i) * 380ms); }
+.bt-play .a-rule   { animation: v-dim 320ms ease both; animation-delay: calc(350ms + var(--i) * 380ms); }
+.bt-play .a-stamp  { animation: v-stamp 420ms var(--bt-ease-out) both 1600ms; transform-origin: 50% 50%; }
+.bt-play .a-rank   { animation: v-rank 1300ms var(--bt-ease-in-out) both 450ms; }
+.bt-play .a-top    { animation: v-pop 300ms var(--bt-ease-out) both 1650ms; }
+.bt-play .a-bubble { animation: v-bubble 340ms var(--bt-ease-out) both; animation-delay: calc(250ms + var(--i) * 520ms); }
+.bt-play .a-typing { animation: v-typing 1000ms ease both 1250ms; }
+.bt-play .a-chan   { animation: v-pop 300ms var(--bt-ease-out) both; animation-delay: calc(var(--i) * 90ms); }
+.bt-play .a-coin   { animation: v-coin 900ms var(--bt-ease-out) both 250ms; }
+.bt-play .a-paid   { animation: v-pop 320ms var(--bt-ease-out) both 1050ms; }
+.bt-play .a-bar    { transform-origin: 0 50%; animation: v-bar 900ms var(--bt-ease-out) both 900ms; }
+
+@keyframes v-file   { 0% { opacity: 0; transform: translate3d(-70px, 0, 0) rotate(-8deg); } 55% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0); } 75% { transform: translate3d(0, 0, 0) scale(0.92); opacity: 1; } 100% { opacity: 0; transform: translate3d(48px, 0, 0) scale(0.6); } }
+@keyframes v-pop    { from { opacity: 0; transform: scale(0.9); } }
+@keyframes v-glow   { 0% { opacity: 0; } 40% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes v-tick   { from { opacity: 0; transform: scale(0.6); } }
+@keyframes v-dim    { from { opacity: 0.45; } }
+@keyframes v-stamp  { from { opacity: 0; transform: scale(1.25) rotate(-10deg); } }
+@keyframes v-rank   { from { transform: translate3d(0, var(--from), 0); } }
+@keyframes v-bubble { from { opacity: 0; transform: translate3d(0, 8px, 0) scale(0.94); } }
+@keyframes v-typing { 0% { opacity: 0; } 15%, 80% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes v-coin   { 0% { opacity: 0; transform: translate3d(0, -46px, 0) scale(0.9); } 70% { opacity: 1; transform: translate3d(0, 4px, 0); } 85% { transform: translate3d(0, -2px, 0); } 100% { opacity: 1; transform: none; } }
+@keyframes v-bar    { from { transform: scaleX(0.62); } }
+
+/* Scroll-driven progress along the steps line. Browsers with scroll-driven
+   animations scrub it with the page; others get the same fill from JS. */
+.bt-progress { position: absolute; inset: 0; background: var(--accent); transform-origin: 0 0; transform: scaleX(var(--bt-p, 0)); }
+.bt-progress.bt-y { transform: scaleY(var(--bt-p, 0)); }
+@supports (animation-timeline: view()) {
+  #como-funciona ol { view-timeline: --bt-steps block; }
+  #como-funciona ol, #como-funciona ol ~ *, #como-funciona ol + * { timeline-scope: --bt-steps; }
+  #como-funciona .relative:has(> ol) { timeline-scope: --bt-steps; }
+  .bt-progress { animation: bt-fill-x linear both; animation-timeline: --bt-steps; animation-range: entry 60% exit 10%; }
+  .bt-progress.bt-y { animation-name: bt-fill-y; }
+  @keyframes bt-fill-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @keyframes bt-fill-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+}
+
+/* The rabbit guide hops to the active step. */
+.bt-guide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  pointer-events: none;
+  transition: transform 560ms var(--bt-ease-in-out);
+  will-change: transform;
+}
+.bt-guide svg { width: 100%; height: 100%; overflow: visible; }
+.bt-guide .g-body { transform-origin: 50% 90%; }
+.bt-guide.bt-hop .g-body { animation: g-hop 560ms var(--bt-ease-in-out); }
+.bt-guide .g-fg { fill: var(--ink); } .bt-guide .g-eye { fill: var(--bg); }
+@keyframes g-hop { 0% { transform: translateY(0) scale(1.05, 0.93); } 35% { transform: translateY(-16px) scale(0.96, 1.05); } 70% { transform: translateY(0) scale(1.06, 0.92); } 100% { transform: none; } }
+
+/* 8. Meter: if we don't collect, you don't pay -------------------------------- */
+.bt-meter-wrap { margin-top: 1.25rem; }
+@media (min-width: 768px) { .bt-meter-wrap { margin-left: 25%; } }
+.bt-meter { min-height: 21rem; border-radius: var(--glass-radius-lg); }
+.bt-meter > .bt-content { display: grid; gap: 1.5rem; padding: 1.5rem; }
+@media (min-width: 900px) { .bt-meter { min-height: 15.5rem; } .bt-meter > .bt-content { grid-template-columns: 1fr 1.15fr; gap: 2.5rem; padding: 1.75rem 2rem; } }
+.bt-meter h3 { font-size: var(--text-lg); font-weight: 600; letter-spacing: -0.015em; line-height: 1.3; color: var(--ink); max-width: 26ch; }
+.bt-meter ol { margin-top: 1rem; display: grid; gap: 0.375rem; font-size: var(--text-sm); }
+.bt-meter ol li { display: flex; align-items: center; gap: 0.625rem; color: var(--ink-2); opacity: 0.55; transition: opacity 240ms ease, color 240ms ease; }
+.bt-meter ol li.on { opacity: 1; }
+.bt-meter ol li.pay.on { color: var(--ink); }
+.bt-meter ol li i { flex-shrink: 0; width: 0.625rem; height: 0.625rem; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--line-strong); transition: background-color 240ms ease, box-shadow 240ms ease; }
+.bt-meter ol li.pay.on i { background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 22%, transparent); }
+.bt-meter ol li.miss.on i { box-shadow: inset 0 0 0 1.5px var(--ink-3); }
+.bt-meter ol li span:last-child { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink-3); font-size: var(--text-xs); }
+.bt-meter ol li.pay.on span:last-child { color: var(--ink); }
+.bt-bars { display: grid; gap: 1.25rem; align-content: center; }
+.bt-bar dt { display: flex; flex-wrap: wrap; justify-content: space-between; column-gap: 1rem; row-gap: 0.125rem; font-size: var(--text-sm); color: var(--ink-2); }
+.bt-bar dt b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.bt-bar dd { margin-top: 0.5rem; height: 0.875rem; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--ink) 9%, transparent); }
+.bt-bar dd span { display: block; height: 100%; border-radius: inherit; transform-origin: 0 50%; transform: scaleX(0); transition: transform 520ms var(--bt-ease-out); }
+.bt-bar.client dd span { background: var(--ink); }
+.bt-bar.fee dd span { background: var(--accent); }
+.bt-meter .bt-note { font-size: var(--text-xs); color: var(--ink-2); grid-column: 1 / -1; }
+
+/* 9. Fallbacks ---------------------------------------------------------------- */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  :root { --glass-bg: rgb(251 248 242 / 0.94); --glass-bg-strong: #fbf8f2; }
+  [data-theme="dark"] { --glass-bg: rgb(34 51 90 / 0.95); --glass-bg-strong: #1b2a4b; }
+  .theme-navy { --glass-bg: rgb(30 45 80 / 0.95); --glass-bg-strong: #14213d; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root { --glass-bg: var(--surface); --glass-bg-strong: var(--surface); --glass-blur: 0px; }
+  .theme-navy, [data-theme="dark"] { --glass-bg: var(--surface); --glass-bg-strong: var(--bg); }
+  #bt-ambient { display: none; }
+  #como-funciona, #calculadora { background-color: var(--surface-2); }
+}
+@media (prefers-contrast: more) {
+  :root, .theme-navy, [data-theme="dark"] { --glass-bg: var(--surface); --glass-bg-strong: var(--surface); --glass-border: var(--line-strong); }
+  #bt-ambient { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #bt-ambient i { animation: none; }
+  .bt-skel::after { animation: none; transform: none; opacity: 0.4; }
+  html.bt-handoff #top h1 ~ div, html.bt-handoff #top h1 ~ ul, html.bt-handoff #top figure { animation-name: bt-fade; animation-duration: 200ms; }
+  @keyframes bt-fade { from { opacity: 0; } }
+  .bt-vig *, .bt-guide, .bt-guide .g-body { animation: none !important; transition: none !important; }
+  .bt-progress { animation: none !important; }
+  .bt-lazy > .bt-content { transform: none; transition-property: opacity; }
+  .bt-bar dd span { transition: none; }
+}
+@media print { #bt-ambient { display: none; } }
+
+/* ==========================================================================
+   v5 additions
+   10. Flowing line waves (background)
+   11. Button finish and click heat
+   ========================================================================== */
+
+/* 10. Waves ------------------------------------------------------------------- */
+/* A ribbon of thin strands, generated by baunti-motion.js once the page is
+   idle. It drifts sideways by transform only. It sits in the fixed backdrop
+   (seen through the cream sections and the glass) and, in cream strokes,
+   inside the navy sections. The hero keeps its own network canvas. */
+.bt-waves {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 420px;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--bt-wave, rgb(20 33 61 / 0.1));
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+.bt-waves.bt-on { opacity: 1; }
+.bt-waves svg { position: absolute; left: 0; top: 0; width: 2400px; height: 420px; animation: bt-wave-x 120s linear infinite; will-change: transform; }
+.bt-waves .w-accent { color: var(--accent); opacity: 0.32; }
+@keyframes bt-wave-x { to { transform: translate3d(-1200px, 0, 0); } }
+html.bt-hidden .bt-waves svg { animation-play-state: paused; }
+
+#bt-ambient .bt-waves { top: 46vh; }
+[data-theme="dark"] #bt-ambient .bt-waves { --bt-wave: rgb(244 237 224 / 0.09); }
+#control > .bt-waves, #demo > .bt-waves, footer > .bt-waves { bottom: -60px; z-index: -1; --bt-wave: rgb(244 237 224 / 0.1); }
+#demo > .bt-waves { bottom: auto; top: 10%; }
+#demo > .bt-waves svg, footer > .bt-waves svg { animation-duration: 150s; animation-direction: reverse; }
+
+/* 11. Buttons ----------------------------------------------------------------- */
+/* Finish: a soft top sheen, an inner light edge and a shadow tinted with the
+   button's own color. Hover (mouse only): one light sweep. Click or Enter:
+   a warm bloom spreads from the exact point pressed, with a glow ring. */
+.btn,
+#pregunta div:has(> button + button) > button {
+  isolation: isolate;
+  overflow: hidden;
+}
+/* The pseudo-element layers need a positioned button. Buttons the app
+   already positions (the floating "Ask Baunti" button and the skip link are
+   fixed) keep their own positioning. */
+.btn:not(.fixed, .absolute, .sticky),
+#pregunta div:has(> button + button) > button { position: relative; }
+.btn.btn-primary { --btn-tone: var(--primary); }
+.btn.btn-accent { --btn-tone: var(--accent); }
+.btn.btn-primary,
+.btn.btn-accent {
+  --btn-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.26),
+    inset 0 -1px 0 rgb(0 0 0 / 0.16),
+    0 1px 2px rgb(20 33 61 / 0.16),
+    0 10px 22px -12px color-mix(in srgb, var(--btn-tone) 80%, transparent);
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0) 55%, rgb(0 0 0 / 0.07));
+  box-shadow: var(--btn-shadow);
+}
+/* the app's hover uses the background shorthand; keep the sheen on hover */
+@media (hover: hover) and (pointer: fine) {
+  .btn.btn-primary:hover,
+  .btn.btn-accent:hover { background-image: linear-gradient(180deg, rgb(255 255 255 / 0.22), rgb(255 255 255 / 0) 55%, rgb(0 0 0 / 0.05)); }
+}
+#main .btn-ghost, header .btn-ghost { --btn-shadow: var(--glass-shadow); }
+#pregunta div:has(> button + button) > button { --btn-shadow: inset 0 1px 0 0 var(--glass-highlight), 0 0 0 1px var(--glass-border); }
+
+/* hover sweep */
+.btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 0.26) 50%, transparent 70%);
+  transform: translate3d(-120%, 0, 0);
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover::before { transform: translate3d(120%, 0, 0); transition: transform 700ms var(--bt-ease-out); }
+}
+
+/* heat on press */
+.btn::after,
+#pregunta div:has(> button + button) > button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle 64px at var(--hx, 50%) var(--hy, 50%),
+    rgb(255 240 214 / 0.95) 0%,
+    rgb(255 178 102 / 0.8) 22%,
+    rgb(255 107 91 / 0.5) 48%,
+    rgb(255 107 91 / 0) 100%);
+  transform-origin: var(--hx, 50%) var(--hy, 50%);
+}
+.bt-heat::after { animation: bt-heat 950ms linear both; }
+.bt-heat { animation: bt-heat-ring 900ms var(--bt-ease-out); }
+/* flares fast, holds its warmth, then cools off */
+@keyframes bt-heat {
+  0% { opacity: 0; transform: scale(0.3); animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1); }
+  12% { opacity: 1; transform: scale(1); animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1); }
+  45% { opacity: 0.85; transform: scale(1.6); animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1); }
+  100% { opacity: 0; transform: scale(2.3); }
+}
+@keyframes bt-heat-ring {
+  0% { box-shadow: 0 0 0 0 rgb(255 140 90 / 0.55), 0 0 18px 0 rgb(255 120 80 / 0.45), var(--btn-shadow, 0 0 #0000); }
+  100% { box-shadow: 0 0 0 10px rgb(255 140 90 / 0), 0 0 26px 4px rgb(255 120 80 / 0), var(--btn-shadow, 0 0 #0000); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bt-waves svg { animation: none; }
+  .btn:hover::before { transition: none; transform: translate3d(-120%, 0, 0); }
+  .bt-heat::after { animation: bt-heat-calm 320ms ease both; transform: none; }
+  .bt-heat { animation: none; }
+  @keyframes bt-heat-calm { 0% { opacity: 0; } 30% { opacity: 0.8; } 100% { opacity: 0; } }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .bt-waves { display: none; }
+}
+#control { overflow: clip; }
+/* coral buttons need a hotter core to read against their own color */
+.btn.btn-accent::after,
+[data-theme="dark"] .btn.btn-primary::after,
+.theme-navy .btn.btn-primary::after {
+  background: radial-gradient(circle 64px at var(--hx, 50%) var(--hy, 50%),
+    rgb(255 252 236 / 1) 0%,
+    rgb(255 226 160 / 0.95) 24%,
+    rgb(255 176 96 / 0.6) 52%,
+    rgb(255 150 90 / 0) 100%);
+}
+
+/* The app paints the page color on body, and a body background is drawn
+   above negative-z layers, which hid the backdrop. So the backdrop sits at
+   z-index 0 and the app root is lifted to 1 above it. body keeps its color,
+   so contrast tools still measure text against the real page color. */
+#bt-ambient { z-index: 0; }
+#root { position: relative; z-index: 1; }

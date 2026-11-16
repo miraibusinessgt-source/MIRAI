@@ -1,0 +1,3 @@
+import{k as r}from"./index-CK-Anyjn.js";const i=r("Download",[["path",{d:"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4",key:"ih7n3h"}],["polyline",{points:"7 10 12 15 17 10",key:"2ggqvy"}],["line",{x1:"12",x2:"12",y1:"15",y2:"3",key:"1vk2je"}]]),c=/^[\s]*[=+\-@\t\r]/;function s(t){let e=t==null?"":String(t);return typeof t=="string"&&c.test(e)&&(e=`'${e}`),/[",\r\n]/.test(e)?`"${e.replace(/"/g,'""')}"`:e}function l(t,e){return"\uFEFF"+[t,...e].map(o=>o.map(s).join(",")).join(`\r
+`)+`\r
+`}function d(t,e){const o=URL.createObjectURL(new Blob([e],{type:"text/csv;charset=utf-8"})),n=document.createElement("a");n.href=o,n.download=t,n.rel="noopener",document.body.appendChild(n),n.click(),n.remove(),setTimeout(()=>URL.revokeObjectURL(o),1e3)}export{i as D,d,l as t};

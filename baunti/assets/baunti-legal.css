@@ -1,0 +1,54 @@
+/* Baunti legal layer (v7): cookie notice and footer legal links.
+   Colors are literal brand values so the notice reads the same on every page. */
+.bc{
+  --bc-bg:#fbf8f2;--bc-ink:#14213d;--bc-ink-2:#3e4961;--bc-line:#14213d1f;--bc-edge:#14213d52;--bc-off:#14213d26;--bc-accent:#ff6b5b;
+  position:fixed;z-index:90;left:16px;right:16px;bottom:16px;
+  max-width:420px;padding:20px;border-radius:16px;
+  background:var(--bc-bg);color:var(--bc-ink);
+  font-family:"Instrument Sans Variable",ui-sans-serif,system-ui,sans-serif;font-size:.875rem;line-height:1.5;
+  box-shadow:0 24px 48px -12px rgba(10,16,32,.45),0 2px 6px rgba(10,16,32,.18);
+  opacity:0;transform:translateY(16px) scale(.98);filter:blur(4px);
+  transition:opacity .42s cubic-bezier(.23,1,.32,1),transform .5s cubic-bezier(.23,1,.32,1),filter .42s cubic-bezier(.23,1,.32,1);
+}
+@media (min-width:640px){.bc{left:24px;right:auto;bottom:24px;width:420px}}
+[data-theme=dark] .bc{--bc-bg:#1f2f53;--bc-ink:#f4ede0;--bc-ink-2:#c9c5be;--bc-line:#f4ede024;--bc-edge:#f4ede04d;--bc-off:#f4ede033;box-shadow:0 24px 48px -12px rgba(0,0,0,.6),0 0 0 1px #f4ede01f}
+.bc.bc-in{opacity:1;transform:none;filter:none}
+.bc.bc-out{opacity:0;transform:translateY(12px);transition-duration:.28s}
+@media (prefers-reduced-motion:reduce){.bc{transform:none;filter:none;transition:opacity .2s linear}}
+.bc *{box-sizing:border-box}
+.bc-head{display:flex;align-items:center;gap:10px}
+.bc-mark{flex:none;color:var(--bc-ink)}
+.bc-mark .bc-eye{fill:var(--bc-bg)}
+.bc h2{margin:0;font-size:1rem;font-weight:600;letter-spacing:-.01em;color:var(--bc-ink)}
+.bc-body{margin:10px 0 0;color:var(--bc-ink-2)}
+.bc a{color:var(--bc-ink);text-decoration:underline;text-underline-offset:.22em;text-decoration-thickness:1px}
+.bc-prefs{margin-top:14px;border-top:1px solid var(--bc-line)}
+.bc-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--bc-line)}
+.bc-row p{margin:0}
+.bc-name{font-weight:600;color:var(--bc-ink)}
+.bc-hint{color:var(--bc-ink-2);font-size:.8125rem}
+.bc-always{flex:none;font-size:.8125rem;font-weight:500;color:var(--bc-ink-2)}
+.bc-switch{flex:none;position:relative;width:48px;height:28px;border-radius:999px;border:0;padding:0;cursor:pointer;background:var(--bc-off);transition:background-color .2s ease}
+.bc-switch span{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .32s cubic-bezier(.34,1.56,.64,1)}
+.bc-switch[aria-checked=true]{background:var(--bc-accent)}
+.bc-switch[aria-checked=true] span{transform:translateX(20px);background:#14213d}
+.bc-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:16px}
+.bc-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:999px;font:600 .875rem/1 inherit;font-family:inherit;cursor:pointer;color:var(--bc-ink);background:transparent;border:1px solid var(--bc-edge);transition:transform .16s cubic-bezier(.23,1,.32,1),background-color .18s ease,border-color .18s ease}
+.bc-btn:active{transform:scale(.97)}
+.bc-btn--solid{background:var(--bc-ink);border-color:var(--bc-ink);color:var(--bc-bg)}
+[data-theme=dark] .bc-btn--solid{background:var(--bc-accent);border-color:var(--bc-accent);color:#14213d}
+@media (hover:hover) and (pointer:fine){.bc-btn:hover{border-color:var(--bc-ink)}[data-theme=dark] .bc-btn--solid:hover{background:#ff8174;border-color:#ff8174}}
+.bc-actions .bc-btn{flex:1 1 0}
+.bc-link{margin-left:auto;min-height:44px;padding:0 4px;border:0;background:none;color:var(--bc-ink);font:500 .875rem/1 inherit;font-family:inherit;text-decoration:underline;text-underline-offset:.22em;cursor:pointer}
+.bc :focus-visible{outline:2px solid var(--bc-ink);outline-offset:3px;border-radius:8px}
+.bc-switch:focus-visible{border-radius:999px}
+
+/* legal links injected into the app footer */
+.bl-legal{display:flex;flex-wrap:wrap;align-items:center;gap:0 20px}
+.bl-legal a,.bl-legal button{display:inline-flex;align-items:center;min-height:40px;padding:0;border:0;background:none;font:inherit;color:inherit;text-decoration:none;cursor:pointer;transition:color .2s ease}
+@media (hover:hover) and (pointer:fine){.bl-legal a:hover,.bl-legal button:hover{color:var(--ink,#f4ede0)}}
+.bl-legal :focus-visible{outline:2px solid var(--focus,#ff6b5b);outline-offset:3px;border-radius:4px}
+
+/* inline text button used inside legal copy */
+.inline-link{all:unset;color:var(--ink);text-decoration:underline;text-underline-offset:.22em;text-decoration-thickness:1px;cursor:pointer}
+.inline-link:focus-visible{outline:2px solid var(--focus);outline-offset:3px;border-radius:4px}
